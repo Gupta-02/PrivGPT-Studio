@@ -1,6 +1,7 @@
 "use client";
 
 import { Zap, Star, Github, Mail, Linkedin, MessageCircle } from "lucide-react";
+import { FaDiscord } from "react-icons/fa";
 import Link from "next/link";
 
 export default function footer() {
@@ -119,7 +120,7 @@ export default function footer() {
                 className="text-muted-foreground hover:text-foreground transition-colors"
                 title="Join our Discord server"
               >
-                <MessageCircle className="w-6 h-6" />
+                <FaDiscord className="w-6 h-6" />
               </Link>
               <Link
                 href="mailto:ruchaambaliya@gmail.com"

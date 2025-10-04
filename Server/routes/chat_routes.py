@@ -6,6 +6,7 @@ from Server import gemini_model, mongo
 from bson import ObjectId
 from Server.utils.file_utils import allowed_file, extract_text_from_pdf_bytes
 import json
+import uuid
 
 def save_and_return(session_id, session_name, model_name, user_msg, bot_reply, uploaded_file, file_bytes):
     """
@@ -16,6 +17,7 @@ def save_and_return(session_id, session_name, model_name, user_msg, bot_reply, u
     """
     messages = [
         {
+            "id": str(uuid.uuid4()),
             "role": "user",
             "content": user_msg,
             "timestamp": datetime.now() - timedelta(seconds=10),
@@ -26,6 +28,7 @@ def save_and_return(session_id, session_name, model_name, user_msg, bot_reply, u
             },
         },
         {
+            "id": str(uuid.uuid4()),
             "role": "bot",
             "content": bot_reply,
             "timestamp": datetime.now(),
@@ -177,8 +180,8 @@ def chat():
 
         # ====== Message Format ======
         messages = [
-            {"role": "user", "content": user_msg, "timestamp": user_timestamp},
-            {"role": "bot", "content": bot_reply, "timestamp": datetime.now(), "model_name": model_name}
+            {"id": str(uuid.uuid4()), "role": "user", "content": user_msg, "timestamp": user_timestamp},
+            {"id": str(uuid.uuid4()), "role": "bot", "content": bot_reply, "timestamp": datetime.now(), "model_name": model_name}
         ]
 
         # save chat history to DB
@@ -361,8 +364,8 @@ def chat_stream():
             # Save to database only if we have some content
             if bot_reply.strip():
                 messages = [
-                    {"role": "user", "content": user_msg, "timestamp": user_timestamp},
-                    {"role": "bot", "content": bot_reply, "timestamp": end_time, "model_name": model_name}
+                    {"id": str(uuid.uuid4()), "role": "user", "content": user_msg, "timestamp": user_timestamp},
+                    {"id": str(uuid.uuid4()), "role": "bot", "content": bot_reply, "timestamp": end_time, "model_name": model_name}
                 ]
 
                 final_session_id = session_id
@@ -441,14 +444,25 @@ def get_session_messages(session_id):
         if not session:
             return jsonify({"error": "Session not found"}), 404
 
-        # Convert timestamps to ISO format for JSON serialization
-        for msg in session.get("messages", []):
+        # Ensure all messages have ids, assign if missing
+        messages = session.get("messages", [])
+        updated = False
+        for msg in messages:
+            if "id" not in msg:
+                msg["id"] = str(uuid.uuid4())
+                updated = True
             if "timestamp" in msg:
                 msg["timestamp"] = msg["timestamp"].isoformat()
 
+        if updated:
+            mongo.db.sessions.update_one(
+                {"_id": ObjectId(session_id)},
+                {"$set": {"messages": messages}}
+            )
+
         return jsonify({
             "session_id": str(session["_id"]),
-            "messages": session["messages"]
+            "messages": messages
         })
 
     except Exception as e:

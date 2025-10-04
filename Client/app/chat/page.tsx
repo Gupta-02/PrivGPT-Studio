@@ -1894,7 +1894,7 @@ export default function ChatPage() {
                         <Textarea
                           value={editedMessageContent}
                           onChange={(e) => setEditedMessageContent(e.target.value)}
-                          className="min-h-[60px] resize-none"
+                          className="min-h-[60px] resize-none bg-background text-foreground border border-input focus:border-ring focus:ring-1 focus:ring-ring"
                           autoFocus
                         />
                         <div className="flex space-x-2">
@@ -1917,44 +1917,44 @@ export default function ChatPage() {
                           isLoading={message.content === "..."}
                           isUser={message.role === "user"}
                         />
-                  <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 hover:bg-black/10 rounded-full"
-                            onClick={() => copyMessage(message.content)}
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Copy message</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      {message.role === "user" && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 hover:bg-black/10 rounded-full"
-                              onClick={() =>
-                                startEditingMessage(message.id, message.content)
-                              }
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Edit message</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </TooltipProvider>
-                  </div>
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-black/10 dark:hover:bg-white/10 rounded-full"
+                                  onClick={() => copyMessage(message.content)}
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Copy message</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            {message.role === "user" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-black/10 dark:hover:bg-white/10 rounded-full"
+                                    onClick={() =>
+                                      startEditingMessage(message.id, message.content)
+                                    }
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Edit message</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </TooltipProvider>
+                        </div>
                       </>
                     )}
                   </div>
@@ -1991,6 +1991,12 @@ export default function ChatPage() {
               </div>
             </div>
           )}
+
+          {currentPromptCount >= maxPromptsPerSession && !isTyping && (
+            <div className="flex justify-center my-2">
+              <Badge variant="destructive">Limit Reached</Badge>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -2004,11 +2010,6 @@ export default function ChatPage() {
                 Prompts: {currentPromptCount} / {maxPromptsPerSession}
               </span>
             </div>
-            {currentPromptCount >= maxPromptsPerSession * 0.8 && (
-              <Badge variant={currentPromptCount >= maxPromptsPerSession ? "destructive" : "secondary"}>
-                {currentPromptCount >= maxPromptsPerSession ? "Limit Reached" : "Approaching Limit"}
-              </Badge>
-            )}
           </div>
 
           {/* File Preview */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Zap, Star, Github, Twitter, Mail, Menu } from "lucide-react";
+import { Zap, Star, Github, Mail, Linkedin, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function footer() {
@@ -95,20 +95,36 @@ export default function footer() {
             <h3 className="font-semibold mb-4">Connect</h3>
             <div className="flex space-x-5">
               <Link
-                href="#"
-                className="text-muted-foreground hover:text-foreground"
+                href="https://github.com/Rucha-Ambaliya/PrivGPT-Studio"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title="Visit our GitHub repository"
               >
                 <Github className="w-6 h-6" />
               </Link>
               <Link
-                href="#"
-                className="text-muted-foreground hover:text-foreground"
+                href="https://linkedin.com/in/rucha-ambaliya"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title="Connect on LinkedIn"
               >
-                <Twitter className="w-6 h-6" />
+                <Linkedin className="w-6 h-6" />
               </Link>
               <Link
-                href="#"
-                className="text-muted-foreground hover:text-foreground"
+                href="https://discord.gg/J9z5T52rkZ"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title="Join our Discord server"
+              >
+                <MessageCircle className="w-6 h-6" />
+              </Link>
+              <Link
+                href="mailto:ruchaambaliya@gmail.com"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title="Contact us via email"
               >
                 <Mail className="w-6 h-6" />
               </Link>

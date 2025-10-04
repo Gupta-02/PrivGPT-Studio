@@ -539,3 +539,46 @@ def delete_chat(session_id):
     except Exception as e:
         print("Error in /chat/delete:", e)
         return jsonify({"error": str(e)}), 500
+
+
+@chat_bp.route("/chat/update_message", methods=["POST"])
+def update_message():
+    """
+    Updates the content of a specific message in a chat session.
+
+    Expected JSON payload:
+    {
+        "session_id": "session_id",
+        "message_id": "message_id",
+        "new_content": "updated message content"
+    }
+
+    Returns:
+    JSON: Status message indicating success or failure.
+    """
+    try:
+        data = request.get_json()
+        session_id = data.get("session_id")
+        message_id = data.get("message_id")
+        new_content = data.get("new_content")
+
+        if not session_id or not message_id or new_content is None:
+            return jsonify({"error": "Missing required fields: session_id, message_id, new_content"}), 400
+
+        # Validate session_id
+        if not ObjectId.is_valid(session_id):
+            return jsonify({"error": "Invalid session_id"}), 400
+
+        # Update the specific message in the session
+        result = mongo.db.sessions.update_one(
+            {"_id": ObjectId(session_id), "messages.id": message_id},
+            {"$set": {"messages.$.content": new_content}}
+        )
+
+        if result.matched_count == 0:
+            return jsonify({"error": "Message not found"}), 404
+
+        return jsonify({"status": "success", "message": "Message updated successfully"})
+    except Exception as e:
+        print("Error in /chat/update_message:", e)
+        return jsonify({"error": str(e)}), 500

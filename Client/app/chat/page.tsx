@@ -17,12 +17,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Send,
   Settings,
@@ -50,9 +49,17 @@ import {
   PlusCircle,
   Square,
   ChevronLeft,
+  Copy,
 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -452,6 +459,10 @@ export default function ChatPage() {
     useState<AbortController | null>(null);
   const [streamingEnabled, setStreamingEnabled] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editedMessageContent, setEditedMessageContent] = useState<string>("");
+  const [maxPromptsPerSession, setMaxPromptsPerSession] = useState<number>(50); // Default limit of 50 prompts
+  const [currentPromptCount, setCurrentPromptCount] = useState<number>(0);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 4000);
@@ -474,6 +485,12 @@ export default function ChatPage() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Update prompt count when messages change
+  useEffect(() => {
+    const userMessageCount = messages.filter(msg => msg.role === 'user').length;
+    setCurrentPromptCount(userMessageCount);
+  }, [messages]);
 
   const stopGeneration = () => {
     if (abortController) {
@@ -718,6 +735,12 @@ export default function ChatPage() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
+
+    // Check if prompt limit has been reached
+    if (currentPromptCount >= maxPromptsPerSession) {
+      toast.error(`You've reached the maximum limit of ${maxPromptsPerSession} prompts per session. Please start a new chat or clear this session to continue.`);
+      return;
+    }
 
     // Check if a model is selected
     if (!selectedModel || selectedModel.trim() === "") {
@@ -1379,6 +1402,63 @@ export default function ChatPage() {
     setEditedName("");
   };
 
+  const copyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast.success("Message copied to clipboard!");
+    } catch (err) {
+      toast.error("Failed to copy message");
+    }
+  };
+
+  const startEditingMessage = (messageId: string, content: string) => {
+    setEditingMessageId(messageId);
+    setEditedMessageContent(content);
+  };
+
+  const saveEditedMessage = async () => {
+    if (editingMessageId && editedMessageContent.trim()) {
+      try {
+        const response = await fetch("http://localhost:5000/chat/update_message", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            message_id: editingMessageId,
+            new_content: editedMessageContent.trim(),
+          }),
+        });
+
+        if (response.ok) {
+          // Update local state
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === editingMessageId
+                ? { ...msg, content: editedMessageContent.trim() }
+                : msg
+            )
+          );
+          setEditingMessageId(null);
+          setEditedMessageContent("");
+          toast.success("Message updated!");
+        } else {
+          const errorData = await response.json();
+          toast.error(`Failed to update message: ${errorData.error}`);
+        }
+      } catch (error) {
+        console.error("Error updating message:", error);
+        toast.error("Failed to update message");
+      }
+    }
+  };
+
+  const cancelEditingMessage = () => {
+    setEditingMessageId(null);
+    setEditedMessageContent("");
+  };
+
   useEffect(() => {
     if (Array.isArray(chatSessions)) {
       const suggestions = chatSessions
@@ -1647,6 +1727,32 @@ export default function ChatPage() {
             </Select>
           </div>
 
+          {/* Prompt Limit Configuration */}
+          <div className={`p-4 ${!isSidebarOpen ? "lg:hidden" : ""}`}>
+            <h3 className="font-semibold mb-3">Session Settings</h3>
+            <div className="space-y-3">
+              <Card>
+                <CardContent className="p-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Max Prompts per Session</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="500"
+                      value={maxPromptsPerSession}
+                      onChange={(e) => setMaxPromptsPerSession(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background"
+                      placeholder="50"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Limit the number of user prompts per chat session to manage resources and costs.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
           {/* Usage Stats */}
           <div className={`p-4 flex-1 ${!isSidebarOpen ? "lg:hidden" : ""}`}>
             <h3 className="font-semibold mb-3">Usage Stats</h3>
@@ -1763,7 +1869,7 @@ export default function ChatPage() {
                   </AvatarFallback>
                 </Avatar>
                 <div
-                  className={`rounded-lg px-4 py-2 ${
+                  className={`rounded-lg px-4 py-2 relative group ${
                     message.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted"
@@ -1782,12 +1888,75 @@ export default function ChatPage() {
                       </div>
                     </div>
                   )}
-                  <div>
-                    <MessageContent
-                      content={message.content}
-                      isLoading={message.content === "..."}
-                      isUser={message.role === "user"}
-                    />
+                  <div className="relative">
+                    {editingMessageId === message.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editedMessageContent}
+                          onChange={(e) => setEditedMessageContent(e.target.value)}
+                          className="min-h-[60px] resize-none"
+                          autoFocus
+                        />
+                        <div className="flex space-x-2">
+                          <Button size="sm" onClick={saveEditedMessage}>
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={cancelEditingMessage}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <MessageContent
+                          content={message.content}
+                          isLoading={message.content === "..."}
+                          isUser={message.role === "user"}
+                        />
+                  <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 hover:bg-black/10 rounded-full"
+                            onClick={() => copyMessage(message.content)}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Copy message</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      {message.role === "user" && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 hover:bg-black/10 rounded-full"
+                              onClick={() =>
+                                startEditingMessage(message.id, message.content)
+                              }
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Edit message</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </TooltipProvider>
+                  </div>
+                      </>
+                    )}
                   </div>
                   <p
                     suppressHydrationWarning
@@ -1827,6 +1996,21 @@ export default function ChatPage() {
 
         {/* Input Area */}
         <div className="border-t p-4">
+          {/* Prompt Limit Indicator */}
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <MessageSquare className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Prompts: {currentPromptCount} / {maxPromptsPerSession}
+              </span>
+            </div>
+            {currentPromptCount >= maxPromptsPerSession * 0.8 && (
+              <Badge variant={currentPromptCount >= maxPromptsPerSession ? "destructive" : "secondary"}>
+                {currentPromptCount >= maxPromptsPerSession ? "Limit Reached" : "Approaching Limit"}
+              </Badge>
+            )}
+          </div>
+
           {/* File Preview */}
           {uploadedFile && (
             <div className="mb-3 flex items-center justify-between bg-muted/50 rounded-lg p-3">
@@ -1946,7 +2130,7 @@ export default function ChatPage() {
             ) : (
               <Button
                 onClick={handleSend}
-                disabled={isTyping || (!uploadedFile && input.trim() === "")}
+                disabled={isTyping || (!uploadedFile && input.trim() === "") || currentPromptCount >= maxPromptsPerSession}
               >
                 <Send className="w-4 h-4" />
               </Button>
